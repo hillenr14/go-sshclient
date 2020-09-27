@@ -1,5 +1,5 @@
 // sshclient implements an ssh client
-package sshclient
+package main
 
 import (
 	"bytes"
@@ -9,8 +9,10 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 type remoteScriptType byte
@@ -287,8 +289,8 @@ type remoteShell struct {
 
 type TerminalConfig struct {
 	Term   string
-	Height int
-	Weight int
+	Heigth int
+	Width  int
 	Modes  ssh.TerminalModes
 }
 
@@ -343,15 +345,24 @@ func (rs *remoteShell) Start() error {
 	if rs.requestPty {
 		tc := rs.terminalConfig
 		if tc == nil {
+			width, heigth, _ := terminal.GetSize(int(os.Stdin.Fd()))
 			tc = &TerminalConfig{
-				Term:   "xterm",
-				Height: 40,
-				Weight: 80,
+				Term:   "xterm-256color",
+				Heigth: heigth,
+				Width:  width,
+				Modes: ssh.TerminalModes{
+					ssh.ECHO:  0,
+					ssh.IGNCR: 1,
+				},
 			}
 		}
-		if err := session.RequestPty(tc.Term, tc.Height, tc.Weight, tc.Modes); err != nil {
+		if err := session.RequestPty(tc.Term, tc.Heigth, tc.Width, tc.Modes); err != nil {
 			return err
 		}
+		// disable input buffering
+		exec.Command("stty", "-F", "/dev/tty", "cbreak", "min", "1").Run()
+		// do not display entered characters on the screen
+		exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
 	}
 
 	if err := session.Shell(); err != nil {

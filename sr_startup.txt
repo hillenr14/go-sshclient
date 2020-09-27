@@ -1,0 +1,2 @@
+admin enable-tech
+show version

@@ -1,4 +1,4 @@
-package sshclient
+package main
 
 import (
 	"bytes"
@@ -148,7 +148,7 @@ func TestShell(t *testing.T) {
 	)
 	err = client.Shell().SetStdio(script, &stdout, &stderr).Start()
 	if err != nil {
-		t.Fatal("Start shell faield: ", err)
+		t.Fatal("Start shell failed: ", err)
 	}
 
 	if stdout.String() != "stdout" == false {
