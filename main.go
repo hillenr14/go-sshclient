@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"strings"
 	"errors"
 	"flag"
 	"fmt"
@@ -11,6 +13,7 @@ import (
 	"encoding/csv"
 )
 
+const CONFIG_DIR = "/home/hillenr/box/7750/"
 var errNotFound = errors.New("not found")
 
 type host struct {
@@ -24,7 +27,7 @@ type host struct {
 
 func scanCsvFile(filePath string, hostName string) (host, error) {
 	var h = host{}
-	f, err := os.Open(filePath)
+	f, err := os.Open(CONFIG_DIR + filePath)
 	if err != nil {
 		log.Fatal("Unable to read input file "+filePath, err)
 	}
@@ -51,15 +54,32 @@ func scanCsvFile(filePath string, hostName string) (host, error) {
 	}
 }
 
+func scanConfig(str string) string {
+	fmt.Print(str)
+	config, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	config = strings.Trim(config, "\n")
+	return config
+}
+
 func main() {
 	port := flag.String("port", "22", "SSH port number")
 	flag.Parse()
 	if len(flag.Args()) == 0 {
 		log.Fatal("Host name argument required")
 	}
-	h, err := scanCsvFile("hosts.txt", flag.Args()[0])
+    hostn := flag.Args()[0]
+	h, err := scanCsvFile("hosts.txt", hostn)
 	if err != nil {
-		log.Fatal("Host ", err)
+		usr_host := strings.Split(hostn, "@")
+		if len(usr_host) == 2 {
+			h.user = usr_host[0]
+			h.ip = usr_host[1]
+		} else {
+			h.user = scanConfig("user: ")
+			h.ip = hostn
+		}
+        h.script = ""
+		h.password = scanConfig("password: ")
 	}
 	client, err := DialWithPasswd(h.ip+":"+*port, h.user, h.password)
 	if err != nil {
@@ -69,7 +89,7 @@ func main() {
 
     var mr io.Reader
     if h.script != "" {
-        file, err := os.Open(h.script)
+        file, err := os.Open(CONFIG_DIR + h.script)
         if err != nil {
             log.Fatal("File error: ", err)
             os.Exit(1)
@@ -77,12 +97,15 @@ func main() {
         defer file.Close()
         mr = io.MultiReader(file, os.Stdin)
     }
+    fmt.Printf("\033]0;%s\007", hostn)
 	err = client.Terminal(nil).SetStdio(mr, nil, nil).Start()
 	//err = client.Shell().SetStdio(script, &stdout, &stderr).Start()
 	if err != nil {
 		log.Fatal("Start shell error: ", err)
 		os.Exit(1)
 	}
+    hostn, err = os.Hostname()
+    fmt.Printf("\033]0;%s\007", hostn)
 
 	/*
 		fmt.Println(stdout.String())

@@ -1,4 +1,0 @@
-name,ip,type,user,password,script_file
-ubfs,192.168.18.4,linux,hillenr,robert14,
-hyp1,10.53.144.248,linux,hillenr,robert14,
-sr7ne,135.252.175.35,sr,admin,admin,sr_startup.txt
