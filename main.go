@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"encoding/csv"
+    "text/tabwriter"
 )
 
 const CONFIG_DIR = "/home/hillenr/box/7750/"
@@ -54,6 +55,29 @@ func scanCsvFile(filePath string, hostName string) (host, error) {
 	}
 }
 
+func printCsvFile(filePath string) (error) {
+    w := tabwriter.NewWriter(os.Stdout, 0, 8, 2, ' ', 0)
+	f, err := os.Open(CONFIG_DIR + filePath)
+	if err != nil {
+		log.Fatal("Unable to read input file "+filePath, err)
+	}
+	defer f.Close()
+
+	r := csv.NewReader(f)
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+            w.Flush()
+            fmt.Printf("\nHost file is at: %s\n", CONFIG_DIR + filePath)
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+        fmt.Fprintf(w, "%s\t\n", strings.Join(record, "\t"))
+	}
+}
+
 func scanConfig(str string) string {
 	fmt.Print(str)
 	config, _ := bufio.NewReader(os.Stdin).ReadString('\n')
@@ -63,9 +87,16 @@ func scanConfig(str string) string {
 
 func main() {
 	port := flag.String("port", "22", "SSH port number")
+	printHosts := flag.Bool("h", false, "Print host file")
 	flag.Parse()
+    if *printHosts {
+        printCsvFile("hosts.txt")
+		os.Exit(0)
+    }
 	if len(flag.Args()) == 0 {
-		log.Fatal("Host name argument required")
+        fmt.Println("Host name (or user@IP) required as argument:\n")
+        printCsvFile("hosts.txt")
+		os.Exit(0)
 	}
     hostn := flag.Args()[0]
 	h, err := scanCsvFile("hosts.txt", hostn)
