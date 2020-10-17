@@ -363,6 +363,8 @@ func (rs *remoteShell) Start() error {
 		exec.Command("stty", "-F", "/dev/tty", "cbreak", "min", "1").Run()
 		// do not display entered characters on the screen
 		exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
+        // prevent ctrl-Z to supend
+		exec.Command("stty", "-F", "/dev/tty", "susp", "").Run()
 	}
 
 	if err := session.Shell(); err != nil {
