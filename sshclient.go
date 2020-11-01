@@ -9,7 +9,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"os/exec"
+	//"os/exec"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
@@ -345,26 +345,28 @@ func (rs *remoteShell) Start() error {
 	if rs.requestPty {
 		tc := rs.terminalConfig
 		if tc == nil {
-			width, heigth, _ := terminal.GetSize(int(os.Stdin.Fd()))
-			tc = &TerminalConfig{
-				Term:   "xterm-256color",
-				Heigth: heigth,
-				Width:  width,
-				Modes: ssh.TerminalModes{
-					ssh.ECHO:  0,
-					ssh.IGNCR: 1,
-				},
-			}
+            stdinFD := int(os.Stdin.Fd())
+            if terminal.IsTerminal(stdinFD) {
+                origState, err := terminal.MakeRaw(stdinFD)
+                if err != nil {
+                    return err
+                }
+                defer terminal.Restore(stdinFD, origState)
+                width, heigth, _ := terminal.GetSize(stdinFD)
+                tc = &TerminalConfig{
+                    Term:   "xterm-256color",
+                    Heigth: heigth,
+                    Width:  width,
+                    Modes: ssh.TerminalModes{
+                        ssh.ECHO:  1,
+                        ssh.IGNCR: 0,
+                    },
+                }
+            }
+            if err := session.RequestPty(tc.Term, tc.Heigth, tc.Width, tc.Modes); err != nil {
+                return err
+            }
 		}
-		if err := session.RequestPty(tc.Term, tc.Heigth, tc.Width, tc.Modes); err != nil {
-			return err
-		}
-		// disable input buffering
-		exec.Command("stty", "-F", "/dev/tty", "cbreak", "min", "1").Run()
-		// do not display entered characters on the screen
-		exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
-        // prevent ctrl-Z to supend
-		exec.Command("stty", "-F", "/dev/tty", "susp", "").Run()
 	}
 
 	if err := session.Shell(); err != nil {
