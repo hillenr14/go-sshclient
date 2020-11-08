@@ -9,12 +9,15 @@ import (
 	"io"
 	"log"
 	"os"
+	"regexp"
+	"time"
 
 	"encoding/csv"
     "text/tabwriter"
 )
 
 const CONFIG_DIR = "/home/hillenr/box/7750/"
+const LOG_DIR = "/home/hillenr/docs/nssh_logs/"
 var errNotFound = errors.New("not found")
 
 type host struct {
@@ -128,8 +131,59 @@ func main() {
         defer file.Close()
         mr = io.MultiReader(file, os.Stdin)
     }
+
+    log_f, err := os.Create(LOG_DIR + h.name + "_" + time.Now().Format("2006-01-02_150405") + ".log")
+    if err != nil {
+        log.Fatal("File error: ", err)
+        os.Exit(1)
+    }
+    defer log_f.Close()
+
+    //mw := io.MultiWriter(log_f, os.Stdout)
+    r, w := io.Pipe()
+    //go io.Copy(os.Stdout, r)
+	go func(r io.Reader  , w io.Writer, logf *os.File) {
+		buf := make([]byte, 1)
+        line := []byte{}
+        hist := []byte{}
+		for {
+			_, err := r.Read(buf)
+			if err == io.EOF {
+				break
+			}
+            char := buf[0]
+            hlen := len(hist)
+            if hlen >= 2 && hist[hlen-1] == 13 && char != 10 {
+                //fmt.Printf("#%X#", hlen)
+                //fmt.Printf("<%X>", char)
+                _, err = w.Write([]byte{10})
+                line = append(line, 10)
+                hist = nil
+            } else if char == 13 {
+                hist = nil
+            }
+            hist = append(hist, char)
+            _, err = w.Write(buf)
+			if err == io.EOF {
+				break
+			}
+            if char == 10 || char == 13 {
+                //fmt.Printf("<%X>", char)
+            }
+            line = append(line, char)
+            if line[len(line)-1] == 10 {
+                ansi_escape, _ := regexp.Compile(`\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])`)
+                result := ansi_escape.ReplaceAll(line, []byte(""))
+                _, err = logf.WriteString(string(result))
+                if err == io.EOF {
+                    break
+                }
+                line = nil
+            }
+		}
+    }(r, os.Stdout, log_f)
     fmt.Printf("\033]0;%s\007", hostn)
-	err = client.Terminal(nil).SetStdio(mr, nil, nil).Start()
+	err = client.Terminal(nil).SetStdio(mr, w, nil).Start()
 	//err = client.Shell().SetStdio(script, &stdout, &stderr).Start()
 	if err != nil {
 		log.Fatal("Start shell error: ", err)
