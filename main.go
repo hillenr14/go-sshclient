@@ -171,8 +171,10 @@ func main() {
             if char == 10 || char == 13 {
                 //fmt.Printf("<%X>", char)
             }
-            line = append(line, char)
-            if line[len(line)-1] == 10 {
+            if char != 0 && char != 13 {
+                line = append(line, char)
+            }
+            if char == 10 {
                 ansi_escape, _ := regexp.Compile(`\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])`)
                 result := ansi_escape.ReplaceAll(line, []byte(""))
                 //_, err = logf.WriteString(string(result))
