@@ -1,0 +1,3 @@
+#!/bin/bash
+trap "" 20
+go run . sr7ne

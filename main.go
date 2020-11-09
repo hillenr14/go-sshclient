@@ -153,13 +153,14 @@ func main() {
 			}
             char := buf[0]
             hlen := len(hist)
-            if hlen >= 2 && hist[hlen-1] == 13 && char != 10 {
+            if hlen >= 2 && hist[hlen-1] != 13 && char == 10 {
                 //fmt.Printf("#%X#", hlen)
                 //fmt.Printf("<%X>", char)
-                _, err = w.Write([]byte{10})
-                line = append(line, 10)
+                _, err = w.Write([]byte{13})
+                line = append(line, 13)
                 hist = nil
-            } else if char == 13 {
+            }
+            if char == 10 {
                 hist = nil
             }
             hist = append(hist, char)
