@@ -131,8 +131,8 @@ func main() {
         defer file.Close()
         mr = io.MultiReader(file, os.Stdin)
     }
-
-    log_f, err := os.Create(LOG_DIR + h.name + "_" + time.Now().Format("2006-01-02_150405") + ".log")
+    log_f_n := LOG_DIR + h.name + "_" + time.Now().Format("2006-01-02_150405") + ".log"
+    log_f, err := os.OpenFile(log_f_n, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
     if err != nil {
         log.Fatal("File error: ", err)
         os.Exit(1)
@@ -175,7 +175,8 @@ func main() {
             if line[len(line)-1] == 10 {
                 ansi_escape, _ := regexp.Compile(`\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])`)
                 result := ansi_escape.ReplaceAll(line, []byte(""))
-                _, err = logf.WriteString(string(result))
+                //_, err = logf.WriteString(string(result))
+                _, err = logf.Write(result)
                 if err == io.EOF {
                     break
                 }
