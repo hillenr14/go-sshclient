@@ -157,7 +157,7 @@ func main() {
                 //fmt.Printf("#%X#", hlen)
                 //fmt.Printf("<%X>", char)
                 _, err = w.Write([]byte{13})
-                line = append(line, 13)
+                //line = append(line, 13)
                 hist = nil
             }
             if char == 10 {
