@@ -154,10 +154,7 @@ func main() {
             char := buf[0]
             hlen := len(hist)
             if hlen >= 2 && hist[hlen-1] != 13 && char == 10 {
-                //fmt.Printf("#%X#", hlen)
-                //fmt.Printf("<%X>", char)
                 _, err = w.Write([]byte{13})
-                //line = append(line, 13)
                 hist = nil
             }
             if char == 10 {
@@ -168,22 +165,32 @@ func main() {
 			if err == io.EOF {
 				break
 			}
-            if char == 10 || char == 13 {
+            if char < 32 || char > 127 {
                 //fmt.Printf("<%X>", char)
             }
-            if char != 0 && char != 13 {
-                line = append(line, char)
+            if char == 0 {
+                continue
             }
             if char == 10 {
+                llen := len(line)
+                if llen >= 2 && line[llen-1] == 13 {
+                    line = line[:llen-2]
+                }
                 ansi_escape, _ := regexp.Compile(`\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])`)
                 result := ansi_escape.ReplaceAll(line, []byte(""))
-                //_, err = logf.WriteString(string(result))
-                _, err = logf.Write(result)
+                _, err = logf.WriteString(string(result) + "\n")
+                //_, err = logf.Write(result)
                 if err == io.EOF {
                     break
                 }
                 line = nil
+                continue
             }
+            //if char < 32 || char > 127 {
+            //    line = append(line, []byte(fmt.Sprintf("<%X>", char))...)
+            //} else {
+            line = append(line, char)
+            //}
 		}
     }(r, os.Stdout, log_f)
     fmt.Printf("\033]0;%s\007", hostn)
