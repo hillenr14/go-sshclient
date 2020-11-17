@@ -174,12 +174,13 @@ func main() {
             if char == 10 {
                 llen := len(line)
                 if llen >= 2 && line[llen-1] == 13 {
-                    line = line[:llen-2]
+                    line = line[:llen-1]
                 }
+                line = append(line, char)
                 ansi_escape, _ := regexp.Compile(`\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])`)
                 result := ansi_escape.ReplaceAll(line, []byte(""))
-                _, err = logf.WriteString(string(result) + "\n")
-                //_, err = logf.Write(result)
+                //_, err = logf.WriteString(string(result))
+                _, err = logf.Write(result)
                 if err == io.EOF {
                     break
                 }
