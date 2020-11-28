@@ -9,8 +9,9 @@ import (
 	"io"
 	"log"
 	"os"
-	"regexp"
+//	"regexp"
 	"time"
+    "strconv"
 
 	"encoding/csv"
     "text/tabwriter"
@@ -88,6 +89,92 @@ func scanConfig(str string) string {
 	return config
 }
 
+func updateStr(str []byte, pos int, c byte) ([]byte, int) {
+    if pos < 0 {
+        pos = 0
+    }
+	for {
+		if len(str) > pos {
+			str[pos] = c
+			pos += 1
+			return str, pos
+		} else {
+            str = append(str, ' ')
+        }
+	}
+}
+
+func scanAnsi(line string, idx int, cursor int) (int, int){
+    if line[idx+1] == '[' {  // CSI (control sequence introduced)
+        //ansi_str = ansi_str + "["
+        digits := ""
+        offs := 0
+        for i := 2; i < len(line); i++ {
+            ac := line[idx + i]
+            if ac >= '0' && ac <= '9' {
+                digits = digits + string(ac)
+            }
+            //ansi_str = ansi_str + string(ac)
+            if ac >= 0x40 && ac <= 0x7e {
+                idx = idx + i
+                offs, _ = strconv.Atoi(digits)
+                if ac == 'D' { //cursor left
+                    cursor -= offs
+                }
+                if ac == 'C' { //cursor right
+                    cursor += offs
+                }
+                if ac != 'm' { // SGR Set Graphics Rendition
+                    //fmt.Printf("%s", ansi_str + ">")
+                }
+                break
+            }
+        }
+    } else {
+        for i := 1; i < len(line); i++ {
+            ac := line[idx + i]
+            //ansi_str = ansi_str + string(ac)
+            if ac >= 0x30 && ac <= 0x7e {
+                idx = idx + i
+                //fmt.Printf("%s", ansi_str + ">")
+                break
+            }
+        }
+    }
+    return idx, cursor
+}
+
+func fmtLine(line string) []byte {
+    output := []byte{}
+    cursor := 0
+    for i := 0; i < len(line); i++ {
+        c := line[i]
+        if c == 7 { //bell
+            continue
+        }
+        if c == 13 { //CR
+            cursor = 0
+            //output = nil
+            continue
+        }
+        if c == 8 && cursor > 0 { //BS
+            cursor -= 1
+            output[cursor] = ' '
+            //fmt.Print("<BS>")
+            continue
+        }
+        if c == 0x1b { // ESC
+            //ansi_str := "<ESC"
+            i, cursor = scanAnsi(line, i, cursor)
+        } else {
+            output, cursor = updateStr(output, cursor, c)
+            //fmt.Printf("%c", c)
+        }
+    }
+    //fmt.Println()
+    return output
+}
+
 func main() {
 	port := flag.String("port", "22", "SSH port number")
 	printHosts := flag.Bool("h", false, "Print host file")
@@ -131,7 +218,7 @@ func main() {
         defer file.Close()
         mr = io.MultiReader(file, os.Stdin)
     }
-    log_f_n := LOG_DIR + h.name + "_" + time.Now().Format("2006-01-02_150405") + ".log"
+    log_f_n := LOG_DIR + hostn + "_" + time.Now().Format("2006-01-02_150405") + ".log"
     log_f, err := os.OpenFile(log_f_n, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
     if err != nil {
         log.Fatal("File error: ", err)
@@ -139,9 +226,7 @@ func main() {
     }
     defer log_f.Close()
 
-    //mw := io.MultiWriter(log_f, os.Stdout)
     r, w := io.Pipe()
-    //go io.Copy(os.Stdout, r)
 	go func(r io.Reader  , w io.Writer, logf *os.File) {
 		buf := make([]byte, 1)
         line := []byte{}
@@ -177,26 +262,22 @@ func main() {
                     line = line[:llen-1]
                 }
                 line = append(line, char)
-                ansi_escape, _ := regexp.Compile(`\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])`)
-                result := ansi_escape.ReplaceAll(line, []byte(""))
+                //ansi_escape, _ := regexp.Compile(`\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])`)
+                //result := ansi_escape.ReplaceAll(line, []byte(""))
                 //_, err = logf.WriteString(string(result))
-                _, err = logf.Write(result)
+                //_, err = logf.Write(line)
+                _, err = logf.Write(fmtLine(string(line)))
                 if err == io.EOF {
                     break
                 }
                 line = nil
                 continue
             }
-            //if char < 32 || char > 127 {
-            //    line = append(line, []byte(fmt.Sprintf("<%X>", char))...)
-            //} else {
             line = append(line, char)
-            //}
 		}
     }(r, os.Stdout, log_f)
     fmt.Printf("\033]0;%s\007", hostn)
 	err = client.Terminal(nil).SetStdio(mr, w, nil).Start()
-	//err = client.Shell().SetStdio(script, &stdout, &stderr).Start()
 	if err != nil {
 		log.Fatal("Start shell error: ", err)
 		os.Exit(1)
@@ -204,13 +285,4 @@ func main() {
     hostn, err = os.Hostname()
     fmt.Printf("\033]0;%s\007", hostn)
 
-	/*
-		fmt.Println(stdout.String())
-		fmt.Println(stderr.String())
-		err = client.Terminal(nil).Start()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Start terminal error: %v\n", err)
-			os.Exit(1)
-		}
-	*/
 }
