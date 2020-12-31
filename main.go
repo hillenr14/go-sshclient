@@ -157,12 +157,12 @@ func fmtLine(line string) []byte {
             //output = nil
             continue
         }
-        if c == 8 && cursor > 0 { //BS
-            cursor -= 1
-            output[cursor] = ' '
-            //fmt.Print("<BS>")
-            continue
-        }
+		if c == 8 && cursor > 0 { //BS
+			output, cursor = updateStr(output, cursor-1, ' ')
+			cursor -= 1
+			//fmt.Print("<BS>")
+			continue
+		}
         if c == 0x1b { // ESC
             //ansi_str := "<ESC"
             i, cursor = scanAnsi(line, i, cursor)
